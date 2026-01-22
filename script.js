@@ -6,6 +6,11 @@ const taskList = document.getElementById("taskList");
 document.addEventListener("DOMContentLoaded", loadTasks);
 
 addTaskBtn.addEventListener("click", addTask);
+taskInput.addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        addTask();
+    }
+});
 
 function addTask() {
     const taskText = taskInput.value.trim();
@@ -68,15 +73,27 @@ function getTasks() {
 function loadTasks() {
     const tasks = getTasks();
     tasks.forEach(addTaskToDOM);
+    updateEmptyState();
 }
 
 function updateTasks() {
     const tasks = [];
     document.querySelectorAll("#taskList li").forEach(li => {
+        const textNode = Array.from(li.childNodes).find(node => node.nodeType === 3);
+        const taskText = textNode ? textNode.textContent.trim() : "";
         tasks.push({
-            text: li.firstChild.textContent,
+            text: taskText,
             completed: li.classList.contains("completed")
         });
     });
     localStorage.setItem("tasks", JSON.stringify(tasks));
+    updateEmptyState();
+}
+
+function updateEmptyState() {
+    const emptyMsg = document.getElementById("emptyMsg");
+    const hasItems = document.querySelectorAll("#taskList li").length > 0;
+    if (emptyMsg) {
+        emptyMsg.style.display = hasItems ? "none" : "block";
+    }
 }
