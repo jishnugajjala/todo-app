@@ -2,7 +2,8 @@ const taskInput = document.getElementById("taskInput");
 const addTaskBtn = document.getElementById("addTaskBtn");
 const taskList = document.getElementById("taskList");
 
-// Load tasks on page load
+const API_BASE = '/api';
+
 document.addEventListener("DOMContentLoaded", loadTasks);
 
 addTaskBtn.addEventListener("click", addTask);
@@ -12,7 +13,7 @@ taskInput.addEventListener("keypress", function(e) {
     }
 });
 
-function addTask() {
+async function addTask() {
     const taskText = taskInput.value.trim();
 
     if (taskText === "") {
@@ -20,74 +21,83 @@ function addTask() {
         return;
     }
 
-    const task = {
-        text: taskText,
-        completed: false
-    };
-
-    addTaskToDOM(task);
-    saveTask(task);
-
-    taskInput.value = "";
+    try {
+        const response = await fetch(`${API_BASE}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: taskText })
+        });
+        
+        const task = await response.json();
+        addTaskToDOM(task);
+        taskInput.value = "";
+        updateEmptyState();
+    } catch (error) {
+        alert('Error adding task');
+    }
 }
 
 function addTaskToDOM(task) {
     const li = document.createElement("li");
     li.textContent = task.text;
+    li.dataset.id = task.id;
 
     if (task.completed) {
         li.classList.add("completed");
     }
 
-    // Toggle completed
-    li.addEventListener("click", function () {
-        li.classList.toggle("completed");
-        updateTasks();
+    li.addEventListener("click", async function () {
+        const isCompleted = li.classList.toggle("completed");
+        await updateTaskStatus(task.id, isCompleted);
     });
 
-    // Delete button
     const deleteBtn = document.createElement("button");
     deleteBtn.textContent = "Delete";
     deleteBtn.className = "delete-btn";
 
-    deleteBtn.addEventListener("click", function (e) {
-        e.stopPropagation(); // prevent toggle
+    deleteBtn.addEventListener("click", async function (e) {
+        e.stopPropagation();
+        await deleteTask(task.id);
         li.remove();
-        updateTasks();
+        updateEmptyState();
     });
 
     li.appendChild(deleteBtn);
     taskList.appendChild(li);
 }
 
-function saveTask(task) {
-    const tasks = getTasks();
-    tasks.push(task);
-    localStorage.setItem("tasks", JSON.stringify(tasks));
+async function loadTasks() {
+    try {
+        const response = await fetch(`${API_BASE}/tasks`);
+        const tasks = await response.json();
+        taskList.innerHTML = '';
+        tasks.forEach(addTaskToDOM);
+        updateEmptyState();
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+    }
 }
 
-function getTasks() {
-    return JSON.parse(localStorage.getItem("tasks")) || [];
-}
-
-function loadTasks() {
-    const tasks = getTasks();
-    tasks.forEach(addTaskToDOM);
-    updateEmptyState();
-}
-
-function updateTasks() {
-    const tasks = [];
-    document.querySelectorAll("#taskList li").forEach(li => {
-        const textNode = Array.from(li.childNodes).find(node => node.nodeType === 3);
-        const taskText = textNode ? textNode.textContent.trim() : "";
-        tasks.push({
-            text: taskText,
-            completed: li.classList.contains("completed")
+async function updateTaskStatus(id, completed) {
+    try {
+        await fetch(`${API_BASE}/tasks/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completed })
         });
-    });
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-    updateEmptyState();
+    } catch (error) {
+        console.error('Error updating task:', error);
+    }
+}
+
+async function deleteTask(id) {
+    try {
+        await fetch(`${API_BASE}/tasks/${id}`, {
+            method: 'DELETE'
+        });
+    } catch (error) {
+        console.error('Error deleting task:', error);
+    }
 }
 
 function updateEmptyState() {
